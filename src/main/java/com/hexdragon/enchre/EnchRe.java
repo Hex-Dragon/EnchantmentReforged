@@ -10,5 +10,6 @@ public class EnchRe {
     public EnchRe() {
         IEventBus modEventBus = FMLJavaModLoadingContext.get().getModEventBus();
         RegMain.ENCHANTMENTS.register(modEventBus);
+        RegMain.CONTAINERS.register(modEventBus);
     }
 }
