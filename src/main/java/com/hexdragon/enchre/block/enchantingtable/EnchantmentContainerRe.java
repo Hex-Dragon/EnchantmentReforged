@@ -1,4 +1,5 @@
 package com.hexdragon.enchre.block.enchantingtable;
+import com.hexdragon.enchre.registry.RegMain;
 import net.minecraft.advancements.CriteriaTriggers;
 import net.minecraft.block.Blocks;
 import net.minecraft.enchantment.EnchantmentData;
@@ -9,7 +10,6 @@ import net.minecraft.entity.player.ServerPlayerEntity;
 import net.minecraft.inventory.IInventory;
 import net.minecraft.inventory.Inventory;
 import net.minecraft.inventory.container.Container;
-import net.minecraft.inventory.container.ContainerType;
 import net.minecraft.inventory.container.Slot;
 import net.minecraft.item.EnchantedBookItem;
 import net.minecraft.item.ItemStack;
@@ -50,7 +50,7 @@ public class EnchantmentContainerRe extends Container {
     }
 
     public EnchantmentContainerRe(int id, PlayerInventory playerInventory, IWorldPosCallable worldPosCallable) {
-        super(ContainerType.ENCHANTMENT, id);
+        super(RegMain.containerEnchantment.get(), id);
         this.worldPosCallable = worldPosCallable;
         this.addSlot(new Slot(this.tableInventory, 0, 15, 47) {
             /**

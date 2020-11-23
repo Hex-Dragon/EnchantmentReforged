@@ -140,7 +140,7 @@ public class EnchantmentScreenRe extends ContainerScreen<EnchantmentContainerRe>
         int l = this.container.getLapisAmount();
 
         for(int i1 = 0; i1 < 3; ++i1) {
-            int j1 = i + 60;
+            int j1 = i + 60 + 50; // TODO : 调试用的 50，确认替换
             int k1 = j1 + 20;
             this.setBlitOffset(0);
             this.minecraft.getTextureManager().bindTexture(ENCHANTMENT_TABLE_GUI_TEXTURE);
