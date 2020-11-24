@@ -79,7 +79,7 @@ public class EnchantmentContainerRe extends Container {
 
         for(int i = 0; i < 3; ++i) {
             for(int j = 0; j < 9; ++j) {
-                this.addSlot(new Slot(playerInventory, j + i * 9 + 9, 8 + j * 18, 84 + 50 + i * 18)); // TODO : 确认附魔台 UI 已经被替换了
+                this.addSlot(new Slot(playerInventory, j + i * 9 + 9, 8 + j * 18, 84 + i * 18));
             }
         }
 

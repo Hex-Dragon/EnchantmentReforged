@@ -3,6 +3,7 @@
   "package": "com.hexdragon.enchre.mixin",
   "compatibilityLevel": "JAVA_8",
   "mixins": [
-    "item/ItemMixin"
+    "item/ItemMixin",
+    "block/EnchantingTableBlockMixin"
   ]
 }
