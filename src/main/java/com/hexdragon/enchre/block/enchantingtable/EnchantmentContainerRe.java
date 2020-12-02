@@ -28,11 +28,9 @@ import java.util.List;
 import java.util.Random;
 
 public class EnchantmentContainerRe extends Container {
+
+    // 物品栏与数据存储
     private final IInventory tableInventory = new Inventory(2) {
-        /**
-         * For tile entities, ensures the chunk containing the tile entity is saved to disk later - the game won't think
-         * it hasn't changed and skip it.
-         */
         public void markDirty() {
             super.markDirty();
             EnchantmentContainerRe.this.onCraftMatrixChanged(this);
@@ -41,214 +39,209 @@ public class EnchantmentContainerRe extends Container {
     private final IWorldPosCallable worldPosCallable;
     private final Random rand = new Random();
     private final IntReferenceHolder xpSeed = IntReferenceHolder.single();
-    public final int[] enchantLevels = new int[3];
-    public final int[] enchantClue = new int[]{-1, -1, -1};
-    public final int[] worldClue = new int[]{-1, -1, -1};
 
-    public EnchantmentContainerRe(int id, PlayerInventory playerInventory) {
-        this(id, playerInventory, IWorldPosCallable.DUMMY);
-    }
-
+    // 构造函数
+    public EnchantmentContainerRe(int id, PlayerInventory playerInventory) {this(id, playerInventory, IWorldPosCallable.DUMMY);}
     public EnchantmentContainerRe(int id, PlayerInventory playerInventory, IWorldPosCallable worldPosCallable) {
         super(RegMain.containerEnchantment.get(), id);
         this.worldPosCallable = worldPosCallable;
+
+        // 追踪数据变化，以自动 makeDirty
+        this.trackInt(IntReferenceHolder.create(this.enchantLevels, 0));
+        this.trackInt(IntReferenceHolder.create(this.enchantLevels, 1));
+        this.trackInt(IntReferenceHolder.create(this.enchantLevels, 2));
+        this.trackInt(this.xpSeed).set(playerInventory.player.getXPSeed());
+        this.trackInt(IntReferenceHolder.create(this.guiEnchantId, 0));
+        this.trackInt(IntReferenceHolder.create(this.guiEnchantId, 1));
+        this.trackInt(IntReferenceHolder.create(this.guiEnchantId, 2));
+        this.trackInt(IntReferenceHolder.create(this.guiEnchantLevel, 0));
+        this.trackInt(IntReferenceHolder.create(this.guiEnchantLevel, 1));
+        this.trackInt(IntReferenceHolder.create(this.guiEnchantLevel, 2));
+
+        // 添加被附魔物品格
         this.addSlot(new Slot(this.tableInventory, 0, 15, 47) {
-            /**
-             * Check if the stack is allowed to be placed in this slot, used for armor slots as well as furnace fuel.
-             */
             public boolean isItemValid(ItemStack stack) {
                 return true;
             }
-
-            /**
-             * Returns the maximum stack size for a given slot (usually the same as getInventoryStackLimit(), but 1 in the
-             * case of armor slots)
-             */
             public int getSlotStackLimit() {
                 return 1;
             }
         });
-        this.addSlot(new Slot(this.tableInventory, 1, 35, 47) {
-            /**
-             * Check if the stack is allowed to be placed in this slot, used for armor slots as well as furnace fuel.
-             */
+        // 添加青金石物品格
+        this.addSlot(new Slot(this.tableInventory, 1, 15, 17) {
             public boolean isItemValid(ItemStack stack) {
                 return net.minecraftforge.common.Tags.Items.GEMS_LAPIS.contains(stack.getItem());
             }
         });
-
+        // 添加背包物品格
         for(int i = 0; i < 3; ++i) {
             for(int j = 0; j < 9; ++j) {
                 this.addSlot(new Slot(playerInventory, j + i * 9 + 9, 8 + j * 18, 84 + i * 18));
             }
         }
-
         for(int k = 0; k < 9; ++k) {
             this.addSlot(new Slot(playerInventory, k, 8 + k * 18, 142));
         }
 
-        this.trackInt(IntReferenceHolder.create(this.enchantLevels, 0));
-        this.trackInt(IntReferenceHolder.create(this.enchantLevels, 1));
-        this.trackInt(IntReferenceHolder.create(this.enchantLevels, 2));
-        this.trackInt(this.xpSeed).set(playerInventory.player.getXPSeed());
-        this.trackInt(IntReferenceHolder.create(this.enchantClue, 0));
-        this.trackInt(IntReferenceHolder.create(this.enchantClue, 1));
-        this.trackInt(IntReferenceHolder.create(this.enchantClue, 2));
-        this.trackInt(IntReferenceHolder.create(this.worldClue, 0));
-        this.trackInt(IntReferenceHolder.create(this.worldClue, 1));
-        this.trackInt(IntReferenceHolder.create(this.worldClue, 2));
     }
 
+    // 附魔参数
+    public final int[] enchantLevels = new int[3]; // 显示在右下角的每个附魔选项的等级
+    public final int[] guiEnchantId = new int[]{-1, -1, -1}; // GUI 指向中显示的附魔 ID
+    public final int[] guiEnchantLevel = new int[]{-1, -1, -1}; // GUI 指向中显示的附魔等级
+
+    // 更新附魔选项的等级与 GUI 显示信息
+    public void onCraftMatrixChanged(IInventory inventoryIn) {
+        if (inventoryIn != this.tableInventory) return;
+
+        // 检查输入物品
+        ItemStack inputItem = inventoryIn.getStackInSlot(0);
+        if (inputItem.isEmpty() || !inputItem.isEnchantable()) {
+            for(int i = 0; i < 3; ++i) {
+                this.enchantLevels[i] = 0;
+                this.guiEnchantId[i] = -1;
+                this.guiEnchantLevel[i] = -1;
+            }
+            return;
+        }
+
+        this.worldPosCallable.consume((world, pos) -> {
+
+            // 获取书架提供的总附魔能力值
+            int power = 0;
+            for(int k = -1; k <= 1; ++k) {
+                for(int l = -1; l <= 1; ++l) {
+                    if ((k != 0 || l != 0) && world.isAirBlock(pos.add(l, 0, k)) && world.isAirBlock(pos.add(l, 1, k))) {
+                        power += getPower(world, pos.add(l * 2, 0, k * 2));
+                        power += getPower(world, pos.add(l * 2, 1, k * 2));
+                        if (l != 0 && k != 0) {
+                            power += getPower(world, pos.add(l * 2, 0, k));
+                            power += getPower(world, pos.add(l * 2, 1, k));
+                            power += getPower(world, pos.add(l, 0, k * 2));
+                            power += getPower(world, pos.add(l, 1, k * 2));
+                        }
+                    }
+                }
+            }
+
+            // 设置随机数种子
+            this.rand.setSeed(this.xpSeed.get());
+
+            // 获取附魔
+            for(int id = 0; id < 3; ++id) {
+                // 清空其他参数
+                this.guiEnchantId[id] = -1;
+                this.guiEnchantLevel[id] = -1;
+                // 根据物品与附魔编号，获取各个附魔的预计等级
+                this.enchantLevels[id] = EnchantmentHelper.calcItemStackEnchantability(this.rand, id, power, inputItem);
+                if (this.enchantLevels[id] < id + 1)  this.enchantLevels[id] = 0;
+                this.enchantLevels[id] = net.minecraftforge.event.ForgeEventFactory.onEnchantmentLevelSet(world, pos, id, power, inputItem, enchantLevels[id]);
+                if (this.enchantLevels[id] <= 0) continue;
+                // 根据等级，获取实际会附加的附魔列表
+                List<EnchantmentData> list = this.getEnchantmentList(inputItem, id, this.enchantLevels[id]);
+                if (list.isEmpty()) continue;
+                // 从附魔列表中抽取一项用于 GUI 显示
+                EnchantmentData enchantmentdata = list.get(this.rand.nextInt(list.size()));
+                this.guiEnchantId[id] = Registry.ENCHANTMENT.getId(enchantmentdata.enchantment);
+                this.guiEnchantLevel[id] = enchantmentdata.enchantmentLevel;
+            }
+
+            // 提交更改
+            this.detectAndSendChanges();
+
+        });
+    }
+
+    // 实际为物品进行附魔（服务端触发）
+    public boolean enchantItem(PlayerEntity playerIn, int id) {
+        ItemStack inputItem = this.tableInventory.getStackInSlot(0);
+        ItemStack lapisItem = this.tableInventory.getStackInSlot(1);
+
+        // 前置条件检查
+        int cost = id + 1; // 青金石与等级花费
+        if ((lapisItem.isEmpty() || lapisItem.getCount() < cost) && !playerIn.abilities.isCreativeMode) {
+            // 检查青金石是否足够
+            return false;
+        } else if (this.enchantLevels[id] <= 0 || inputItem.isEmpty() || (playerIn.experienceLevel < cost || playerIn.experienceLevel < this.enchantLevels[id]) && !playerIn.abilities.isCreativeMode) {
+            // 检查玩家等级是否足够
+            return false;
+        }
+        // 检查准备附魔的列表是否为空
+        this.worldPosCallable.consume((world, pos) -> {
+            ItemStack outputItem = inputItem;
+            List<EnchantmentData> enchList = this.getEnchantmentList(inputItem, id, this.enchantLevels[id]); // 附魔列表
+            if (enchList.isEmpty()) return;
+
+            // 如果输入为书，则将输出替换为附魔书
+            boolean isBook = inputItem.getItem() == Items.BOOK;
+            if (isBook) {
+                outputItem = new ItemStack(Items.ENCHANTED_BOOK);
+                CompoundNBT compoundnbt = inputItem.getTag();
+                if (compoundnbt != null) outputItem.setTag(compoundnbt.copy());
+                this.tableInventory.setInventorySlotContents(0, outputItem);
+            }
+            // 为输出物品添加附魔
+            for(int j = 0; j < enchList.size(); ++j) {
+                EnchantmentData enchantmentdata = enchList.get(j);
+                if (isBook) {
+                    EnchantedBookItem.addEnchantment(outputItem, enchantmentdata);
+                } else {
+                    outputItem.addEnchantment(enchantmentdata.enchantment, enchantmentdata.enchantmentLevel);
+                }
+            }
+            // 扣除玩家等级，并重置附魔随机种子
+            playerIn.onEnchant(inputItem, cost);
+            // 扣除青金石
+            if (!playerIn.abilities.isCreativeMode) {
+                lapisItem.shrink(cost);
+                if (lapisItem.isEmpty()) this.tableInventory.setInventorySlotContents(1, ItemStack.EMPTY);
+            }
+
+            // 改变统计信息，触发 Trigger
+            playerIn.addStat(Stats.ENCHANT_ITEM);
+            if (playerIn instanceof ServerPlayerEntity) {
+                CriteriaTriggers.ENCHANTED_ITEM.trigger((ServerPlayerEntity)playerIn, outputItem, cost);
+            }
+            // 更新结果
+            this.tableInventory.markDirty();
+            this.xpSeed.set(playerIn.getXPSeed());
+            this.onCraftMatrixChanged(this.tableInventory);
+            world.playSound(null, pos, SoundEvents.BLOCK_ENCHANTMENT_TABLE_USE, SoundCategory.BLOCKS, 1.0F, world.rand.nextFloat() * 0.1F + 0.9F);
+
+        });
+        return true;
+    }
+
+    // 为 [ItemStack、附魔位与等级] 提供固定的 [实际附魔列表] 输出
+    // 其中没有随机因素，相同输入会给出固定的输出（这基于玩家的一个种子）
+    private List<EnchantmentData> getEnchantmentList(ItemStack stack, int enchantSlot, int level) {
+        this.rand.setSeed(this.xpSeed.get() + enchantSlot);
+        List<EnchantmentData> list = EnchantmentHelper.buildEnchantmentList(this.rand, stack, level, false);
+        if (stack.getItem() == Items.BOOK && list.size() > 1) list.remove(this.rand.nextInt(list.size()));
+        return list;
+    }
+
+    /*********************************
+     *       无需修改的代码
+     ********************************/
+
+    // 获取某个方块的附魔能力值
     private float getPower(net.minecraft.world.World world, net.minecraft.util.math.BlockPos pos) {
         return world.getBlockState(pos).getEnchantPowerBonus(world, pos);
     }
 
-    /**
-     * Callback for when the crafting matrix is changed.
-     */
-    public void onCraftMatrixChanged(IInventory inventoryIn) {
-        if (inventoryIn == this.tableInventory) {
-            ItemStack itemstack = inventoryIn.getStackInSlot(0);
-            if (!itemstack.isEmpty() && itemstack.isEnchantable()) {
-                this.worldPosCallable.consume((p_217002_2_, p_217002_3_) -> {
-                    int power = 0;
-
-                    for(int k = -1; k <= 1; ++k) {
-                        for(int l = -1; l <= 1; ++l) {
-                            if ((k != 0 || l != 0) && p_217002_2_.isAirBlock(p_217002_3_.add(l, 0, k)) && p_217002_2_.isAirBlock(p_217002_3_.add(l, 1, k))) {
-                                power += getPower(p_217002_2_, p_217002_3_.add(l * 2, 0, k * 2));
-                                power += getPower(p_217002_2_, p_217002_3_.add(l * 2, 1, k * 2));
-
-                                if (l != 0 && k != 0) {
-                                    power += getPower(p_217002_2_, p_217002_3_.add(l * 2, 0, k));
-                                    power += getPower(p_217002_2_, p_217002_3_.add(l * 2, 1, k));
-                                    power += getPower(p_217002_2_, p_217002_3_.add(l, 0, k * 2));
-                                    power += getPower(p_217002_2_, p_217002_3_.add(l, 1, k * 2));
-                                }
-                            }
-                        }
-                    }
-
-                    this.rand.setSeed((long)this.xpSeed.get());
-
-                    for(int i1 = 0; i1 < 3; ++i1) {
-                        this.enchantLevels[i1] = EnchantmentHelper.calcItemStackEnchantability(this.rand, i1, (int)power, itemstack);
-                        this.enchantClue[i1] = -1;
-                        this.worldClue[i1] = -1;
-                        if (this.enchantLevels[i1] < i1 + 1) {
-                            this.enchantLevels[i1] = 0;
-                        }
-                        this.enchantLevels[i1] = net.minecraftforge.event.ForgeEventFactory.onEnchantmentLevelSet(p_217002_2_, p_217002_3_, i1, (int)power, itemstack, enchantLevels[i1]);
-                    }
-
-                    for(int j1 = 0; j1 < 3; ++j1) {
-                        if (this.enchantLevels[j1] > 0) {
-                            List<EnchantmentData> list = this.getEnchantmentList(itemstack, j1, this.enchantLevels[j1]);
-                            if (list != null && !list.isEmpty()) {
-                                EnchantmentData enchantmentdata = list.get(this.rand.nextInt(list.size()));
-                                this.enchantClue[j1] = Registry.ENCHANTMENT.getId(enchantmentdata.enchantment);
-                                this.worldClue[j1] = enchantmentdata.enchantmentLevel;
-                            }
-                        }
-                    }
-
-                    this.detectAndSendChanges();
-                });
-            } else {
-                for(int i = 0; i < 3; ++i) {
-                    this.enchantLevels[i] = 0;
-                    this.enchantClue[i] = -1;
-                    this.worldClue[i] = -1;
-                }
-            }
-        }
-
-    }
-
-    /**
-     * Handles the given Button-click on the server, currently only used by enchanting. Name is for legacy.
-     */
-    public boolean enchantItem(PlayerEntity playerIn, int id) {
-        ItemStack itemstack = this.tableInventory.getStackInSlot(0);
-        ItemStack itemstack1 = this.tableInventory.getStackInSlot(1);
-        int i = id + 1;
-        if ((itemstack1.isEmpty() || itemstack1.getCount() < i) && !playerIn.abilities.isCreativeMode) {
-            return false;
-        } else if (this.enchantLevels[id] <= 0 || itemstack.isEmpty() || (playerIn.experienceLevel < i || playerIn.experienceLevel < this.enchantLevels[id]) && !playerIn.abilities.isCreativeMode) {
-            return false;
-        } else {
-            this.worldPosCallable.consume((p_217003_6_, p_217003_7_) -> {
-                ItemStack itemstack2 = itemstack;
-                List<EnchantmentData> list = this.getEnchantmentList(itemstack, id, this.enchantLevels[id]);
-                if (!list.isEmpty()) {
-                    playerIn.onEnchant(itemstack, i);
-                    boolean flag = itemstack.getItem() == Items.BOOK;
-                    if (flag) {
-                        itemstack2 = new ItemStack(Items.ENCHANTED_BOOK);
-                        CompoundNBT compoundnbt = itemstack.getTag();
-                        if (compoundnbt != null) {
-                            itemstack2.setTag(compoundnbt.copy());
-                        }
-
-                        this.tableInventory.setInventorySlotContents(0, itemstack2);
-                    }
-
-                    for(int j = 0; j < list.size(); ++j) {
-                        EnchantmentData enchantmentdata = list.get(j);
-                        if (flag) {
-                            EnchantedBookItem.addEnchantment(itemstack2, enchantmentdata);
-                        } else {
-                            itemstack2.addEnchantment(enchantmentdata.enchantment, enchantmentdata.enchantmentLevel);
-                        }
-                    }
-
-                    if (!playerIn.abilities.isCreativeMode) {
-                        itemstack1.shrink(i);
-                        if (itemstack1.isEmpty()) {
-                            this.tableInventory.setInventorySlotContents(1, ItemStack.EMPTY);
-                        }
-                    }
-
-                    playerIn.addStat(Stats.ENCHANT_ITEM);
-                    if (playerIn instanceof ServerPlayerEntity) {
-                        CriteriaTriggers.ENCHANTED_ITEM.trigger((ServerPlayerEntity)playerIn, itemstack2, i);
-                    }
-
-                    this.tableInventory.markDirty();
-                    this.xpSeed.set(playerIn.getXPSeed());
-                    this.onCraftMatrixChanged(this.tableInventory);
-                    p_217003_6_.playSound((PlayerEntity)null, p_217003_7_, SoundEvents.BLOCK_ENCHANTMENT_TABLE_USE, SoundCategory.BLOCKS, 1.0F, p_217003_6_.rand.nextFloat() * 0.1F + 0.9F);
-                }
-
-            });
-            return true;
-        }
-    }
-
-    private List<EnchantmentData> getEnchantmentList(ItemStack stack, int enchantSlot, int level) {
-        this.rand.setSeed((long)(this.xpSeed.get() + enchantSlot));
-        List<EnchantmentData> list = EnchantmentHelper.buildEnchantmentList(this.rand, stack, level, false);
-        if (stack.getItem() == Items.BOOK && list.size() > 1) {
-            list.remove(this.rand.nextInt(list.size()));
-        }
-
-        return list;
-    }
-
-    @OnlyIn(Dist.CLIENT)
-    public int getLapisAmount() {
+    // 获取青金石数量
+    @OnlyIn(Dist.CLIENT) public int getLapisAmount() {
         ItemStack itemstack = this.tableInventory.getStackInSlot(1);
         return itemstack.isEmpty() ? 0 : itemstack.getCount();
     }
 
-    @OnlyIn(Dist.CLIENT)
-    public int func_217005_f() {
+    // 获取 xpSeed
+    @OnlyIn(Dist.CLIENT) public int getXpSeed() {
         return this.xpSeed.get();
     }
 
-    /**
-     * Called when the container is closed.
-     */
+    // 在容器关闭时返还物品
     public void onContainerClosed(PlayerEntity playerIn) {
         super.onContainerClosed(playerIn);
         this.worldPosCallable.consume((p_217004_2_, p_217004_3_) -> {
@@ -256,17 +249,12 @@ public class EnchantmentContainerRe extends Container {
         });
     }
 
-    /**
-     * Determines whether supplied player can use this container
-     */
+    // 玩家是否能与其交互
     public boolean canInteractWith(PlayerEntity playerIn) {
         return isWithinUsableDistance(this.worldPosCallable, playerIn, Blocks.ENCHANTING_TABLE);
     }
 
-    /**
-     * Handle when the stack in slot {@code index} is shift-clicked. Normally this moves the stack between the player
-     * inventory and the other inventory(s).
-     */
+    // 按 Shift+左键 时转移物品
     public ItemStack transferStackInSlot(PlayerEntity playerIn, int index) {
         ItemStack itemstack = ItemStack.EMPTY;
         Slot slot = this.inventorySlots.get(index);
@@ -311,4 +299,5 @@ public class EnchantmentContainerRe extends Container {
 
         return itemstack;
     }
+
 }

@@ -3,10 +3,7 @@ package com.hexdragon.corere.item;
 import com.sun.istack.internal.NotNull;
 import net.minecraft.enchantment.Enchantment;
 import net.minecraft.enchantment.EnchantmentHelper;
-import net.minecraft.item.EnchantedBookItem;
 import net.minecraft.item.ItemStack;
-import net.minecraft.item.Items;
-import net.minecraft.nbt.ListNBT;
 
 import java.util.Map;
 import java.util.stream.Collectors;
