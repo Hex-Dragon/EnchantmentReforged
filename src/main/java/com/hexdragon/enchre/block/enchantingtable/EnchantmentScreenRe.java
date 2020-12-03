@@ -100,41 +100,43 @@ public class EnchantmentScreenRe extends ContainerScreen<EnchantmentContainerRe>
         super.render(matrixStack, mouseX, mouseY, partialTicks);
         this.renderHoveredTooltip(matrixStack, mouseX, mouseY);
         // 渲染 ToolTip 文本
-        for(int id = 0; id < 3; ++id) {
+        for(int id = 0; id < 3; id++) {
             int enchantLevels = (this.container).enchantLevels[id];
             Enchantment enchantment = Enchantment.getEnchantmentByID((this.container).guiEnchantId[id]);
             int guiEnchantLevel = (this.container).guiEnchantLevel[id];
             // 判断鼠标是否在按钮上
-            if (!this.isPointInRegion(60, 14 + 19 * id, 108, 17, mouseX, mouseY) && enchantLevels > 0) continue;
+            if (!(this.isPointInRegion(60, 14 + 19 * id, 108, 17, mouseX, mouseY) && enchantLevels > 0)) continue;
             List<ITextComponent> list = Lists.newArrayList();
             if(enchantment == null) {
                 // 没有可用附魔，显示 limitedEnchantability 信息
-                list.add((new TranslationTextComponent("container.enchant.clue", "")).mergeStyle(TextFormatting.WHITE));
+                list.add(new TranslationTextComponent("container.enchant.clue", "").mergeStyle(TextFormatting.WHITE));
                 list.add(new StringTextComponent(""));
                 list.add(new TranslationTextComponent("forge.container.enchant.limitedEnchantability").mergeStyle(TextFormatting.RED));
-            } else if (!this.minecraft.player.abilities.isCreativeMode) {
+            } else {
                 // 显示第一条附魔
                 list.add((new TranslationTextComponent("container.enchant.clue", enchantment.getDisplayName(guiEnchantLevel))).mergeStyle(TextFormatting.WHITE));
                 // 显示附魔消耗（等级、青金石）
-                list.add(StringTextComponent.EMPTY);
-                if (this.minecraft.player.experienceLevel < enchantLevels) {
-                    list.add((new TranslationTextComponent("container.enchant.level.requirement", (this.container).enchantLevels[id])).mergeStyle(TextFormatting.RED));
-                } else {
-                    IFormattableTextComponent iformattabletextcomponent;
-                    int cost = id + 1;
-                    if (cost == 1) {
-                        iformattabletextcomponent = new TranslationTextComponent("container.enchant.lapis.one");
+                if (!this.minecraft.player.abilities.isCreativeMode){
+                    list.add(StringTextComponent.EMPTY);
+                    if (this.minecraft.player.experienceLevel < enchantLevels) {
+                        list.add((new TranslationTextComponent("container.enchant.level.requirement", (this.container).enchantLevels[id])).mergeStyle(TextFormatting.RED));
                     } else {
-                        iformattabletextcomponent = new TranslationTextComponent("container.enchant.lapis.many", cost);
+                        IFormattableTextComponent iformattabletextcomponent;
+                        int cost = id + 1;
+                        if (cost == 1) {
+                            iformattabletextcomponent = new TranslationTextComponent("container.enchant.lapis.one");
+                        } else {
+                            iformattabletextcomponent = new TranslationTextComponent("container.enchant.lapis.many", cost);
+                        }
+                        list.add(iformattabletextcomponent.mergeStyle(this.container.getLapisAmount() >= cost ? TextFormatting.GRAY : TextFormatting.RED));
+                        IFormattableTextComponent iformattabletextcomponent1;
+                        if (cost == 1) {
+                            iformattabletextcomponent1 = new TranslationTextComponent("container.enchant.level.one");
+                        } else {
+                            iformattabletextcomponent1 = new TranslationTextComponent("container.enchant.level.many", cost);
+                        }
+                        list.add(iformattabletextcomponent1.mergeStyle(TextFormatting.GRAY));
                     }
-                    list.add(iformattabletextcomponent.mergeStyle(this.container.getLapisAmount() >= cost ? TextFormatting.GRAY : TextFormatting.RED));
-                    IFormattableTextComponent iformattabletextcomponent1;
-                    if (cost == 1) {
-                        iformattabletextcomponent1 = new TranslationTextComponent("container.enchant.level.one");
-                    } else {
-                        iformattabletextcomponent1 = new TranslationTextComponent("container.enchant.level.many", cost);
-                    }
-                    list.add(iformattabletextcomponent1.mergeStyle(TextFormatting.GRAY));
                 }
             }
             // 提交 ToolTip 渲染
