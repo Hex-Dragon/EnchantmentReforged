@@ -111,7 +111,6 @@ public class EnchantmentContainerRe extends Container {
             int power = 0;
             for(int k = -1; k <= 1; ++k) {
                 for(int l = -1; l <= 1; ++l) {
-                    // TODO : 让火把、雪等方块不会干扰书架的附魔能力值传递（由于代码判断间隔方块必须是空气）
                     if ((k != 0 || l != 0) && world.isAirBlock(pos.add(l, 0, k)) && world.isAirBlock(pos.add(l, 1, k))) {
                         power += getPower(world, pos.add(l * 2, 0, k * 2));
                         power += getPower(world, pos.add(l * 2, 1, k * 2));
