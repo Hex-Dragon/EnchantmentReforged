@@ -19,7 +19,7 @@ modId = "enchre" #mandatory
 # The version number of the mod - there's a few well known ${} variables useable here or just hardcode it
 version = "0.0.0.0" #mandatory
 # A display name for the mod
-displayName = "Enchantment: Rebirth" #mandatory
+displayName = "Enchantment: Reforged" #mandatory
 # A URL to query for updates for this mod. See the JSON update specification <here>
 #updateJSONURL="http://myurl.me/" #optional
 # A URL for the "homepage" for this mod, displayed in the mod UI
@@ -32,8 +32,7 @@ displayName = "Enchantment: Rebirth" #mandatory
 authors = "Hex Dragon" #optional
 # The description text for the mod (multi line!) (#mandatory)
 description = '''
-by LTCat, 00ll00 and HerobrineXia
-'''
+by LTCat, 00ll00 and HerobrineXia'''
 # A dependency - use the . to indicate dependency for a specific modid. Dependencies are optional.
 [[dependencies.enchre]] #optional
 # the modid of the dependency
